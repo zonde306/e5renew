@@ -1,6 +1,6 @@
 # encoding: utf-8
 
-import typing, fastapi, urllib, aiohttp, secrets, msal, datetime, pydantic
+import typing, fastapi, urllib, aiohttp, secrets, datetime, pydantic
 import pony.orm as pony
 import settings, funcs, models
 
@@ -18,7 +18,7 @@ class MemberData(pydantic.BaseModel):
 	password : str
 #end MemberData
 
-@app.post("/new-user")
+@app.post("/api/new-user")
 def new_user(body : MemberData):
 	"""
 	注册新用户
@@ -37,7 +37,7 @@ class NewAppData(pydantic.BaseModel):
 	secret : str
 #end NewAppData
 
-@app.post("/new-app/{openid}")
+@app.post("/api/new-app/{openid}")
 async def new_app(openid : str, body : NewAppData):
 	"""
 	添加新的应用程序
@@ -75,7 +75,7 @@ class SetAppData(pydantic.BaseModel):
 	secret : str
 #end SetAppData
 
-@app.post("/set-app/{openid}/{app_id}")
+@app.post("/api/set-app/{openid}/{app_id}")
 async def set_app(openid : str, app_id : int, body : SetAppData):
 	"""
 	更新现有的app secret
@@ -112,7 +112,7 @@ async def set_app(openid : str, app_id : int, body : SetAppData):
 	return { "status" : "ok" }
 #end set_app
 
-@app.get("/app-authorize/{openid}/{app_id}")
+@app.get("/api/app-authorize/{openid}/{app_id}")
 async def authorize_app(openid : str, app_id : int, response: fastapi.Response, host : str = fastapi.Header(None)):
 	"""
 	登录以获取授权
@@ -148,7 +148,7 @@ async def authorize_app(openid : str, app_id : int, response: fastapi.Response, 
 	return { "status" : "ok", "redirect_uri" : response.headers["Location"] }
 #end authorize_app
 
-@app.get("/app-result")
+@app.get("/api/app-result")
 async def app_result(
 	state : typing.Optional[str] = None,
 	code : typing.Optional[str] = None,
@@ -198,7 +198,7 @@ async def app_result(
 	return { "status" : "ok", "mail_count" : len(mail.get("value", [])) }
 #end app_result
 
-@app.get("/app-update/{openid}/{app_id}")
+@app.get("/api/app-update/{openid}/{app_id}")
 async def app_update(openid : str, app_id : int):
 	"""
 	获取邮件数量，顺便刷新 access_token
