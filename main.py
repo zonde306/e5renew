@@ -24,16 +24,16 @@ def new_user(body : MemberData):
 	注册新用户
 	"""
 	
+	with pony.db_session:
+		if models.User.get(username=body.username):
+			return { "status" : "error", "reason" : "username already exists" }
+	#end with
+	
 	account = None
 	with pony.db_session:
 		account = models.Account()
 	with pony.db_session:
-		try:
-			user = models.User(account_id=account.id, username=body.username, password=body.password)
-		except:
-			return { "status" : "error", "reason" : "bad username" }
-	#end with
-	
+		user = models.User(account_id=account.id, username=body.username, password=body.password)
 	return { "status" : "ok", "openid" : account.openid }
 #end new_user
 
