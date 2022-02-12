@@ -5,6 +5,7 @@ import pony.orm as pony
 import funcs
 
 db = pony.Database()
+# pony.set_sql_debug(True)
 
 class Account(db.Entity):
 	id = pony.PrimaryKey(int, auto=True)
