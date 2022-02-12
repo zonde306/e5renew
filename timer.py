@@ -18,7 +18,7 @@ async def callback():
 	results = []
 	with pony.db_session:
 		for a in pony.select(a for a in models.Application if a.next <= datetime.datetime.now() and a.valid):
-			results.append(await models.update_app(a))
+			results.append(await models.update_app(a, a.redirect_uri))
 			a.set(next=datetime.datetime.now() + datetime.timedelta(seconds=random.randint(a.min_interval.seconds, a.max_interval.seconds)))
 		#end for
 	#end with
