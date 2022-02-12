@@ -18,10 +18,11 @@ def last_time():
 
 async def callback():
 	results = []
+	now = datetime.datetime.now()
 	with pony.db_session:
-		for a in pony.select(a for a in models.Application if a.next <= datetime.datetime.now() and a.valid):
+		for a in pony.select(a for a in models.Application if a.next <= now and a.valid):
 			results.append(await models.update_app(a, a.redirect_uri))
-			a.set(next=datetime.datetime.now() + datetime.timedelta(seconds=random.randint(a.min_interval.seconds, a.max_interval.seconds)))
+			a.set(next = now + datetime.timedelta(seconds = random.randint(a.min_interval.seconds, a.max_interval.seconds)))
 		#end for
 		pony.commit()
 	#end with
