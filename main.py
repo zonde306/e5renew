@@ -137,7 +137,7 @@ async def authorize_app(openid : str, app_id : int, response: fastapi.Response, 
 	scherma = "http" if host.startswith("localhost") else "https"
 	data = {
 		"client_id" : dbapp.client_id,
-		"redirect_uri" : f"{scherma}://{host}/app-result",
+		"redirect_uri" : f"{scherma}://{host}/api/app-result",
 		"scope" : "offline_access mail.read mail.readbasic mail.readwrite",
 		"response_mode" : "query",
 		"response_type" : "code",
@@ -178,7 +178,7 @@ async def app_result(
 	#end with
 	
 	scherma = "http" if host.startswith("localhost") else "https"
-	redirect_uri = f"{scherma}://{host}/app-result"
+	redirect_uri = f"{scherma}://{host}/api/app-result"
 	token = await funcs.get_access_token(code, settings.CLIENT_ID, settings.SECRET, redirect_uri)
 	if "error_description" in token:
 		return { "status" : "error", "reason" : token.get("error_description") }
@@ -226,7 +226,7 @@ async def app_update(openid : str, app_id : int):
 	# 刷新 access_token
 	if dbapp.expires_in <= datetime.datetime.now():
 		scherma = "http" if host.startswith("localhost") else "https"
-		redirect_uri = f"{scherma}://{host}/app-result"
+		redirect_uri = f"{scherma}://{host}/api/app-result"
 		token = await funcs.refresh_token(dbapp.refresh_token, dbapp.client_id, dbapp.secret, redirect_uri)
 		if "error_description" in token:
 			return { "status" : "error", "reason" : token.get("error_description") }
