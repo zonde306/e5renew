@@ -7,12 +7,12 @@ db = pony.Database()
 
 class Account(db.Entity):
 	id = pony.PrimaryKey(int, auto=True)
-	openid = pony.Required(str, index=True, default=secrets.token_urlsafe)
+	openid = pony.Required(str, index=True, unique=True, default=secrets.token_urlsafe)
 #end Account
 
 class User(db.Entity):
 	id = pony.PrimaryKey(int, auto=True)
-	account_id = pony.Required(int, index=True)
+	account_id = pony.Required(int)
 	username = pony.Required(str, index=True, unique=True)
 	password = pony.Required(bytes)
 	salt = pony.Required(bytes)
@@ -26,6 +26,8 @@ class Application(db.Entity):
 	access_token = pony.Optional(str)
 	refresh_token = pony.Optional(str)
 	expires_in = pony.Optional(datetime.datetime)
+	valid = pony.Required(bool, default=False)
+	pony.composite_key(account_id, client_id)
 #end Application
 
 class Event(db.Entity):

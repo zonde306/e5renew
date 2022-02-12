@@ -87,13 +87,16 @@ async def new_app(openid : str, body : NewAppData):
 	if "error_description" in result:
 		return { "status" : "error", "reason" : result["error_description"] }
 	
+	# 查重
+	with pony.db_session:
+		if models.Application.get(account_id=account.id, client_id=body.client_id):
+			return { "status" : "error", "reason" : "client_id already exists" }
+	#end with
+	
 	# 添加
 	dbapp = None
 	with pony.db_session:
-		try:
-			dbapp = models.Application(account_id=account.id, client_id=body.client_id, secret=body.secret)
-		except:
-			return { "status" : "error", "reason" : "client_id already exists" }
+		dbapp = models.Application(account_id=account.id, client_id=body.client_id, secret=body.secret)
 	#end with
 	
 	return { "status" : "ok", "app_id" : dbapp.id }
@@ -131,11 +134,15 @@ async def set_app(openid : str, app_id : int, body : SetAppData):
 	except:
 		return { "status" : "error", "reason" : "network error" }
 	if "error_description" in result:
+		with pony.db_session:
+			models.Event(app_id=dbapp.id, error_no=4, message=result["error_description"])
+			models.Application.get(id=dbapp.id).set(valid=False)
 		return { "status" : "error", "reason" : result["error_description"] }
+	#end if
 	
 	# 更新 secret
 	with pony.db_session:
-		models.Application.get(id=dbapp.id).set(secret=body.secret)
+		models.Application.get(id=dbapp.id).set(secret=body.secret, valid=(dbapp.access_token and dbapp.refresh_token and dbapp.expires_in))
 	
 	return { "status" : "ok" }
 #end set_app
@@ -199,9 +206,8 @@ async def app_result(
 	
 	dbapp = None
 	with pony.db_session:
-		try:
-			dbapp = models.Application.get(id=app_id, account_id=account_id)
-		except pony.RowNotFound:
+		dbapp = models.Application.get(id=app_id, account_id=account_id)
+		if not dbapp:
 			return { "status" : "error", "reason" : "state invalid" }
 	#end with
 	
@@ -209,17 +215,26 @@ async def app_result(
 	redirect_uri = f"{scherma}://{host}/api/app-result"
 	token = await funcs.get_access_token(code, dbapp.client_id, dbapp.secret, redirect_uri)
 	if "error_description" in token:
+		with pony.db_session:
+			models.Event(app_id=app_id, error_no=1, message=token.get("error_description"))
+			models.Application.get(id=app_id).set(valid=False)
 		return { "status" : "error", "reason" : token.get("error_description") }
+	#end if
 	
 	mail = await funcs.get_mail(token.get("access_token"))
 	if "error_description" in mail:
+		with pony.db_session:
+			models.Event(app_id=app_id, error_no=2, message=mail.get("error_description"))
+			models.Application.get(id=app_id).set(valid=False)
 		return { "status" : "error", "reason" : mail.get("error_description") }
+	#end if
 	
 	with pony.db_session:
 		models.Application.get(id=dbapp.id).set(
 			access_token=token.get("access_token"),
 			refresh_token=token.get("refresh_token"),
 			expires_in=datetime.datetime.now() + datetime.timedelta(seconds=token.get("expires_in")),
+			valid=True,
 		)
 	#end with
 	
@@ -248,8 +263,12 @@ async def app_update(openid : str, app_id : int):
 			return { "status" : "error", "reason" : "app_id not found" }
 	#end with
 	
-	if not dbapp.expires_in or not dbapp.access_token or not dbapp.refresh_token:
-		return { "status" : "error", "reason" : "bad app_id" }
+	if not dbapp.valid:
+		event = pony.select(e for e in models.Event if e.app_id == dbapp.id and e.error_no).order_by(pony.desc(models.Event.timestamp)).first()
+		if event:
+			return { "status" : "error", "reason" : "bad app: " + event.message }
+		return { "status" : "error", "reason" : "bad app" }
+	#end if
 	
 	# 刷新 access_token
 	if dbapp.expires_in <= datetime.datetime.now():
@@ -271,8 +290,10 @@ async def app_update(openid : str, app_id : int):
 	mail = await funcs.get_mail(dbapp.access_token)
 	if "error_description" in mail:
 		with pony.db_session:
-			models.Event(app_id=dbapp.id, error_no=1, message=mail.get("error_description"))
+			models.Event(app_id=dbapp.id, error_no=3, message=mail.get("error_description"))
+			models.Application.get(id=dbapp.id).set(valid=False)
 		return { "status" : "error", "reason" : mail.get("error_description") }
+	#end if
 	
 	with pony.db_session:
 		models.Event(app_id=dbapp.id, message="got {} mail".format(len(mail.get("value", []))))
