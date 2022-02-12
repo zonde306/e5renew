@@ -303,5 +303,5 @@ async def app_update(openid : str, app_id : int, host : str = fastapi.Header(Non
 	if "error_description" in mail:
 		return { "status" : "error", "reason" : mail["error_description"] }
 	
-	return { "status" : "ok", "mail_count" : len(mail.get("value", [])) }
+	return { "status" : "ok", "mail_count" : len(mail.get("value", [])), "next" : dbapp.next }
 #end app_update
