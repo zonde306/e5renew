@@ -24,7 +24,7 @@ async def callback():
 	#end with
 	
 	if results:
-		print(results)
+		print("auto update: {}".format(len(filter(lambda x: "value" in x, results))))
 	
 	Timer(last_time(), callback, callback_async=True)
 #end callback
