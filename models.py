@@ -58,18 +58,18 @@ async def update_app(dbapp, redirect_uri):
 		
 		if "error_description" in token:
 			with pony.db_session:
-				models.Event(app_id=dbapp.id, error_no=4, message=token.get("error_description"))
-				models.Application.get(id=dbapp.id).set(valid=False)
+				Event(app_id=dbapp.id, error_no=4, message=token.get("error_description"))
+				Application.get(id=dbapp.id).set(valid=False)
 			return { "status" : "error", "reason" : token.get("error_description") }
 		#end if
 		
 		with pony.db_session:
-			models.Application.get(id=dbapp.id).set(
+			Application.get(id=dbapp.id).set(
 				access_token=token.get("access_token"),
 				refresh_token=token.get("refresh_token", dbapp.refresh_token),
 				expires_in=datetime.datetime.now() + datetime.timedelta(seconds=token.get("expires_in")),
 			)
-			dbapp = models.Application.get(id=dbapp.id)
+			dbapp = Application.get(id=dbapp.id)
 		#end with
 	#end if
 	
@@ -80,13 +80,13 @@ async def update_app(dbapp, redirect_uri):
 		return { "status" : "error", "reason" : "network error" }
 	if "error_description" in mail:
 		with pony.db_session:
-			models.Event(app_id=dbapp.id, error_no=3, message=mail.get("error_description"))
-			models.Application.get(id=dbapp.id).set(valid=False)
+			Event(app_id=dbapp.id, error_no=3, message=mail.get("error_description"))
+			Application.get(id=dbapp.id).set(valid=False)
 		return { "status" : "error", "reason" : mail.get("error_description") }
 	#end if
 	
 	with pony.db_session:
-		models.Event(app_id=dbapp.id, message="got {} mail".format(len(mail.get("value", []))))
+		Event(app_id=dbapp.id, message="got {} mail".format(len(mail.get("value", []))))
 	
 	return mail
 #end update_app
