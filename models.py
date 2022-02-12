@@ -50,8 +50,10 @@ class Event(db.Entity):
 #end Event
 
 async def update_app(dbapp, redirect_uri):
+	now = datetime.datetime.now()
+	
 	# 刷新 access_token
-	if dbapp.expires_in <= datetime.datetime.now():
+	if dbapp.expires_in <= now:
 		try:
 			token = await funcs.refresh_token(dbapp.refresh_token, dbapp.client_id, dbapp.secret, redirect_uri)
 		except:
@@ -65,10 +67,10 @@ async def update_app(dbapp, redirect_uri):
 		#end if
 		
 		with pony.db_session:
-			Application.get(id=dbapp.id).set(
-				access_token=token.get("access_token"),
-				refresh_token=token.get("refresh_token", dbapp.refresh_token),
-				expires_in=datetime.datetime.now() + datetime.timedelta(seconds=token.get("expires_in")),
+			Application.get(id = dbapp.id).set(
+				access_token = token.get("access_token"),
+				refresh_token = token.get("refresh_token", dbapp.refresh_token),
+				expires_in = now + datetime.timedelta(seconds=token.get("expires_in")),
 			)
 			dbapp = Application.get(id=dbapp.id)
 		#end with
