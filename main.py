@@ -179,7 +179,7 @@ async def app_result(
 	
 	scherma = "http" if host.startswith("localhost") else "https"
 	redirect_uri = f"{scherma}://{host}/api/app-result"
-	token = await funcs.get_access_token(code, settings.CLIENT_ID, settings.SECRET, redirect_uri)
+	token = await funcs.get_access_token(code, dbapp.client_id, dbapp.secret, redirect_uri)
 	if "error_description" in token:
 		return { "status" : "error", "reason" : token.get("error_description") }
 	
