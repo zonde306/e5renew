@@ -1,6 +1,6 @@
 # encoding: utf-8
 
-import typing, fastapi, urllib, aiohttp, secrets, datetime, pydantic
+import typing, fastapi, urllib, aiohttp, secrets, datetime, pydantic, hmac, os
 import pony.orm as pony
 import settings, funcs, models
 
@@ -32,8 +32,31 @@ def new_user(body : MemberData):
 	account = None
 	with pony.db_session:
 		account = models.Account()
+	
+	salt = os.urandom(16)
+	password = hmac.new(body.password.encode("utf-8"), salt, "sha256").digest()
+	
 	with pony.db_session:
-		user = models.User(account_id=account.id, username=body.username, password=body.password)
+		user = models.User(account_id=account.id, username=body.username, password=password, salt=salt)
+	return { "status" : "ok", "openid" : account.openid }
+#end new_user
+
+@app.post("/api/user-login")
+def new_user(body : MemberData):
+	"""
+	用户登录
+	"""
+	
+	account = None
+	with pony.db_session:
+		user = models.User.get(username=body.username)
+		if not user:
+			return { "status" : "error", "reason" : "bad username or password" }
+		if not hmac.compare_digest(hmac.new(body.password.encode("utf-8"), user.salt, "sha256").digest(), user.password):
+			return { "status" : "error", "reason" : "bad username or password" }
+		account = models.Account.get(id=user.account_id)
+	#end with
+	
 	return { "status" : "ok", "openid" : account.openid }
 #end new_user
 

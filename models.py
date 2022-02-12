@@ -1,6 +1,6 @@
 # encoding: utf-8
 
-import datetime, secrets
+import datetime, secrets, os
 import pony.orm as pony
 
 db = pony.Database()
@@ -14,7 +14,8 @@ class User(db.Entity):
 	id = pony.PrimaryKey(int, auto=True)
 	account_id = pony.Required(int, index=True)
 	username = pony.Required(str, index=True, unique=True)
-	password = pony.Required(str)
+	password = pony.Required(bytes)
+	salt = pony.Required(bytes)
 #end User
 
 class Application(db.Entity):
