@@ -12,7 +12,7 @@ def last_time():
 		soon = pony.select(a.next for a in models.Application if a.next > now and a.valid).min()
 	# print("next: {} - {} = {}".format(soon, now, soon - now))
 	if soon:
-		return max((soon - now).seconds, 1)
+		return (soon - now).seconds + 1		# 防止因精度不足导致意外唤醒
 	return settings.SLEEP_TIME
 #end last_next_time
 
