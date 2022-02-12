@@ -28,7 +28,6 @@ async def callback():
 	
 	if results:
 		print("auto update: {}".format(len(list(filter(lambda x: "value" in x, results)))))
-		await asyncio.sleep(2)	# 等待 IO 完成
 	#end if
 	
 	next = last_time()
