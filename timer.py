@@ -7,8 +7,8 @@ import models, settings
 
 def last_time():
 	soon = None
-	pony.commit()
 	with pony.db_session:
+		pony.flush()
 		soon = pony.select(a.next for a in models.Application if a.next > datetime.datetime.now() and a.valid).min()
 	if soon:
 		return (soon - datetime.datetime.now()).seconds
