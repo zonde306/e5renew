@@ -8,7 +8,9 @@ import models, settings
 timer = None
 
 def last_time():
-	last = pony.select(a for a in models.Application if a.next > datetime.datetime.now() and a.valid).order_by(a.next).first()
+	last = None
+	with pony.db_session:
+		last = pony.select(a for a in models.Application if a.next > datetime.datetime.now() and a.valid).order_by(a.next).first()
 	if last:
 		return (datetime.datetime.now() - last.next).seconds
 	return settings.SLEEP_TIME
