@@ -8,7 +8,6 @@ import models, settings
 def last_time():
 	soon = None
 	with pony.db_session:
-		pony.flush()
 		soon = pony.select(a.next for a in models.Application if a.next > datetime.datetime.now() and a.valid).min()
 	print("next: {}".format(soon))
 	if soon:
@@ -23,6 +22,7 @@ async def callback():
 			results.append(await models.update_app(a, a.redirect_uri))
 			a.set(next=datetime.datetime.now() + datetime.timedelta(seconds=random.randint(a.min_interval.seconds, a.max_interval.seconds)))
 		#end for
+		pony.commit()
 	#end with
 	
 	if results:
