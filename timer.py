@@ -1,6 +1,6 @@
 # encoding: utf-8
 
-import datetime, random
+import datetime, random, asyncio
 from aio_timers import Timer
 import pony.orm as pony
 import models, settings
@@ -10,9 +10,9 @@ def last_time():
 	now = datetime.datetime.now()
 	with pony.db_session:
 		soon = pony.select(a.next for a in models.Application if a.next > now and a.valid).min()
-	print("next: {} - {} = {}".format(soon, now, soon - now))
+	# print("next: {} - {} = {}".format(soon, now, soon - now))
 	if soon:
-		return (soon - now).seconds
+		return max((soon - now).seconds, 1)
 	return settings.SLEEP_TIME
 #end last_next_time
 
@@ -24,11 +24,12 @@ async def callback():
 			results.append(await models.update_app(a, a.redirect_uri))
 			a.set(next = now + datetime.timedelta(seconds = random.randint(a.min_interval.seconds, a.max_interval.seconds)))
 		#end for
-		pony.commit()
 	#end with
 	
 	if results:
 		print("auto update: {}".format(len(list(filter(lambda x: "value" in x, results)))))
+		await asyncio.sleep(2)	# 等待 IO 完成
+	#end if
 	
 	next = last_time()
 	Timer(next, callback, callback_async=True)
