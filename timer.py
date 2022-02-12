@@ -10,7 +10,7 @@ def last_time():
 	now = datetime.datetime.now()
 	with pony.db_session:
 		soon = pony.select(a.next for a in models.Application if a.next > now and a.valid).min()
-	print("next: {} - {} = ".format(soon, now, soon - now))
+	print("next: {} - {} = {}".format(soon, now, soon - now))
 	if soon:
 		return (soon - now).seconds
 	return settings.SLEEP_TIME
