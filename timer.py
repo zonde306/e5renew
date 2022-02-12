@@ -7,7 +7,7 @@ import models, settings
 
 def last_time():
 	soon = None
-	now = datetime.datetime.now() + datetime.timedelta(seconds=1)
+	now = datetime.datetime.now()
 	with pony.db_session:
 		soon = pony.select(a.next for a in models.Application if a.next > now and a.valid).min()
 	print("next: {} - {} = {}".format(soon, now, soon - now))
