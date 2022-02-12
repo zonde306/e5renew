@@ -1,8 +1,9 @@
 # encoding: utf-8
 
-import typing, fastapi, urllib, aiohttp, secrets, datetime, pydantic, hmac, os
+import typing, fastapi, urllib, aiohttp, secrets, datetime, pydantic, hmac, os, random
 import pony.orm as pony
 import settings, funcs, models
+import timer
 
 app = fastapi.FastAPI()
 models.db.bind(**settings.DATABASE)
@@ -103,7 +104,9 @@ async def new_app(openid : str, body : NewAppData):
 #end new_app
 
 class SetAppData(pydantic.BaseModel):
-	secret : str
+	secret : typing.Optional[str]
+	min_interval : typing.Optional[int]
+	max_interval : typing.Optional[int]
 #end SetAppData
 
 @app.post("/api/set-app/{openid}/{app_id}")
@@ -129,20 +132,29 @@ async def set_app(openid : str, app_id : int, body : SetAppData):
 	#end with
 	
 	# 验证 client_id 和 secret
-	try:
-		result = await funcs.get_access_token_without_code(dbapp.client_id, body.secret)
-	except:
-		return { "status" : "error", "reason" : "network error" }
-	if "error_description" in result:
-		with pony.db_session:
-			models.Event(app_id=dbapp.id, error_no=4, message=result["error_description"])
-			models.Application.get(id=dbapp.id).set(valid=False)
-		return { "status" : "error", "reason" : result["error_description"] }
+	if body.secret:
+		try:
+			result = await funcs.get_access_token_without_code(dbapp.client_id, body.secret)
+		except:
+			return { "status" : "error", "reason" : "network error" }
+		if "error_description" in result:
+			with pony.db_session:
+				models.Event(app_id=dbapp.id, error_no=4, message=result["error_description"])
+				models.Application.get(id=dbapp.id).set(valid=False)
+			return { "status" : "error", "reason" : result["error_description"] }
+		#end if
 	#end if
 	
 	# 更新 secret
 	with pony.db_session:
-		models.Application.get(id=dbapp.id).set(secret=body.secret, valid=(dbapp.access_token and dbapp.refresh_token and dbapp.expires_in))
+		models.Application.get(id=dbapp.id).set(
+			secret = body.secret or dbapp.secret,
+			valid = (dbapp.access_token and dbapp.refresh_token and dbapp.expires_in),
+			min_interval = datetime.timedelta(seconds=body.min_interval or dbapp.min_interval.seconds),
+			max_interval = datetime.timedelta(seconds=body.max_interval or dbapp.max_interval.seconds),
+			next = datetime.datetime.now() + datetime.timedelta(seconds=random.randint(body.min_interval or dbapp.min_interval.seconds, body.max_interval or dbapp.max_interval.seconds)),
+		)
+	#end with
 	
 	return { "status" : "ok" }
 #end set_app
@@ -161,18 +173,21 @@ async def authorize_app(openid : str, app_id : int, response: fastapi.Response, 
 			return { "status" : "error", "reason" : "openid not found" }
 	#end with
 	
+	scherma = "http" if host.startswith("localhost") else "https"
+	redirect_uri = f"{scherma}://{host}/api/app-result"
+	
 	# 获取 app
 	dbapp = None
 	with pony.db_session:
 		dbapp = models.Application.get(id=app_id, account_id=account.id)
 		if not dbapp:
 			return { "status" : "error", "reason" : "app_id not found" }
+		dbapp.set(redirect_uri=redirect_uri)
 	#end with
 	
-	scherma = "http" if host.startswith("localhost") else "https"
 	data = {
 		"client_id" : dbapp.client_id,
-		"redirect_uri" : f"{scherma}://{host}/api/app-result",
+		"redirect_uri" : redirect_uri,
 		"scope" : "offline_access mail.read mail.readbasic mail.readwrite",
 		"response_mode" : "query",
 		"response_type" : "code",
@@ -213,7 +228,12 @@ async def app_result(
 	
 	scherma = "http" if host.startswith("localhost") else "https"
 	redirect_uri = f"{scherma}://{host}/api/app-result"
-	token = await funcs.get_access_token(code, dbapp.client_id, dbapp.secret, redirect_uri)
+	
+	try:
+		token = await funcs.get_access_token(code, dbapp.client_id, dbapp.secret, dbapp.redirect_uri or redirect_uri)
+	except:
+		return { "status" : "error", "reason" : "network error" }
+	
 	if "error_description" in token:
 		with pony.db_session:
 			models.Event(app_id=app_id, error_no=1, message=token.get("error_description"))
@@ -221,7 +241,11 @@ async def app_result(
 		return { "status" : "error", "reason" : token.get("error_description") }
 	#end if
 	
-	mail = await funcs.get_mail(token.get("access_token"))
+	try:
+		mail = await funcs.get_mail(token.get("access_token"))
+	except:
+		return { "status" : "error", "reason" : "network error" }
+	
 	if "error_description" in mail:
 		with pony.db_session:
 			models.Event(app_id=app_id, error_no=2, message=mail.get("error_description"))
@@ -270,34 +294,14 @@ async def app_update(openid : str, app_id : int, host : str = fastapi.Header(Non
 		return { "status" : "error", "reason" : "bad app" }
 	#end if
 	
-	# 刷新 access_token
-	if dbapp.expires_in <= datetime.datetime.now():
-		scherma = "http" if host.startswith("localhost") else "https"
-		redirect_uri = f"{scherma}://{host}/api/app-result"
-		token = await funcs.refresh_token(dbapp.refresh_token, dbapp.client_id, dbapp.secret, redirect_uri)
-		if "error_description" in token:
-			return { "status" : "error", "reason" : token.get("error_description") }
-		
-		with pony.db_session:
-			models.Application.get(id=dbapp.id).set(
-				access_token=token.get("access_token"),
-				refresh_token=token.get("refresh_token", dbapp.refresh_token),
-				expires_in=datetime.datetime.now() + datetime.timedelta(seconds=token.get("expires_in")),
-			)
-			dbapp = models.Application.get(id=dbapp.id)
-		#end with
-	#end if
+	scherma = "http" if host.startswith("localhost") else "https"
+	redirect_uri = f"{scherma}://{host}/api/app-result"
 	
-	mail = await funcs.get_mail(dbapp.access_token)
+	mail = models.update_app(dbapp, dbapp.redirect_uri or redirect_uri)
+	if "reason" in mail:
+		return { "status" : "error", "reason" : mail["reason"] }
 	if "error_description" in mail:
-		with pony.db_session:
-			models.Event(app_id=dbapp.id, error_no=3, message=mail.get("error_description"))
-			models.Application.get(id=dbapp.id).set(valid=False)
-		return { "status" : "error", "reason" : mail.get("error_description") }
-	#end if
-	
-	with pony.db_session:
-		models.Event(app_id=dbapp.id, message="got {} mail".format(len(mail.get("value", []))))
+		return { "status" : "error", "reason" : mail["error_description"] }
 	
 	return { "status" : "ok", "mail_count" : len(mail.get("value", [])) }
 #end app_update
