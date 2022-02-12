@@ -28,7 +28,12 @@ def new_user(body : MemberData):
 	with pony.db_session:
 		account = models.Account()
 	with pony.db_session:
-		user = models.User(account_id=account.id, username=body.username, password=body.password)
+		try:
+			user = models.User(account_id=account.id, username=body.username, password=body.password)
+		except:
+			return { "status" : "error", "reason" : "bad username" }
+	#end with
+	
 	return { "status" : "ok", "openid" : account.openid }
 #end new_user
 
