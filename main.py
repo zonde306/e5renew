@@ -284,6 +284,7 @@ async def app_update(openid : str, app_id : int, host : str = fastapi.Header(Non
 				refresh_token=token.get("refresh_token", dbapp.refresh_token),
 				expires_in=datetime.datetime.now() + datetime.timedelta(seconds=token.get("expires_in")),
 			)
+			dbapp = models.Application.get(id=dbapp.id)
 		#end with
 	#end if
 	
