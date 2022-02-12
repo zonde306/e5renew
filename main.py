@@ -242,7 +242,7 @@ async def app_result(
 #end app_result
 
 @app.get("/api/app-update/{openid}/{app_id}")
-async def app_update(openid : str, app_id : int):
+async def app_update(openid : str, app_id : int, host : str = fastapi.Header(None)):
 	"""
 	获取邮件数量
 	"""
