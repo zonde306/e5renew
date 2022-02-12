@@ -244,7 +244,7 @@ async def app_result(
 @app.get("/api/app-update/{openid}/{app_id}")
 async def app_update(openid : str, app_id : int):
 	"""
-	获取邮件数量，顺便刷新 access_token
+	获取邮件数量
 	"""
 	
 	# 确认 openid 有效
