@@ -281,7 +281,7 @@ async def app_update(openid : str, app_id : int, host : str = fastapi.Header(Non
 		with pony.db_session:
 			models.Application.get(id=dbapp.id).set(
 				access_token=token.get("access_token"),
-				refresh_token=token.get("refresh_token"),
+				refresh_token=token.get("refresh_token", dbapp.refresh_token),
 				expires_in=datetime.datetime.now() + datetime.timedelta(seconds=token.get("expires_in")),
 			)
 		#end with
