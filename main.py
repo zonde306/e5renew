@@ -297,7 +297,7 @@ async def app_update(openid : str, app_id : int, host : str = fastapi.Header(Non
 	scherma = "http" if host.startswith("localhost") else "https"
 	redirect_uri = f"{scherma}://{host}/api/app-result"
 	
-	mail = models.update_app(dbapp, dbapp.redirect_uri or redirect_uri)
+	mail = await models.update_app(dbapp, dbapp.redirect_uri or redirect_uri)
 	if "reason" in mail:
 		return { "status" : "error", "reason" : mail["reason"] }
 	if "error_description" in mail:
