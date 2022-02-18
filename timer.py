@@ -1,7 +1,6 @@
 # encoding: utf-8
 
-import datetime, random, asyncio
-from aio_timers import Timer
+import datetime, random, asyncio, inspect
 import pony.orm as pony
 import models, settings
 
@@ -12,7 +11,8 @@ def last_time():
 		soon = pony.select(a.next for a in models.Application if a.next > now and a.valid).min()
 	# print("next: {} - {} = {}".format(soon, now, soon - now))
 	if soon:
-		return (soon - now).seconds + 1		# 防止因精度不足导致意外唤醒
+		next = soon - now
+		return next.seconds + next.microseconds / 1000000
 	return settings.SLEEP_TIME
 #end last_next_time
 
@@ -31,8 +31,65 @@ async def callback():
 	#end if
 	
 	next = last_time()
-	Timer(next, callback, callback_async=True)
-	print("next auto update: {}s".format(next))
+	print("now {} next auto update: {}s".format(now, next))
+	return next
 #end callback
 
-Timer(1, callback, callback_async=True)
+async def timer(init_interval, cb, args=[], kwargs={}):
+	if isinstance(init_interval, (int, float)):
+		await asyncio.sleep(init_interval)
+	elif isinstance(init_interval, datetime.timedelta):
+		await asyncio.sleep(init_interval.seconds + init_interval.microseconds / 1000000)
+	elif isinstance(init_interval, datetime.datetime):
+		next = init_interval - datetime.datetime.now()
+		await asyncio.sleep(next.seconds + next.microseconds / 1000000)
+	#end if
+	
+	if inspect.isasyncgenfunction(cb):
+		async for next_interval in cb(*args, **kwargs):
+			if isinstance(next_interval, (int, float)):
+				await asyncio.sleep(next_interval)
+			elif isinstance(next_interval, datetime.timedelta):
+				await asyncio.sleep(next_interval.seconds + next_interval.microseconds / 1000000)
+			elif isinstance(next_interval, datetime.datetime):
+				next = next_interval - datetime.datetime.now()
+				await asyncio.sleep(next.seconds + next.microseconds / 1000000)
+		#end for
+	elif inspect.iscoroutinefunction(cb):
+		next_interval = await cb(*args, **kwargs)
+		while next_interval:
+			if isinstance(next_interval, (int, float)):
+				await asyncio.sleep(next_interval)
+			elif isinstance(next_interval, datetime.timedelta):
+				await asyncio.sleep(next_interval.seconds + next_interval.microseconds / 1000000)
+			elif isinstance(next_interval, datetime.datetime):
+				next = next_interval - datetime.datetime.now()
+				await asyncio.sleep(max(0, next.seconds + next.microseconds / 1000000))
+			next_interval = await cb(*args, **kwargs)
+		#end while
+	elif inspect.isgeneratorfunction(cb):
+		for next_interval in cb(*args, **kwargs):
+			if isinstance(next_interval, (int, float)):
+				await asyncio.sleep(next_interval)
+			elif isinstance(next_interval, datetime.timedelta):
+				await asyncio.sleep(next_interval.seconds + next_interval.microseconds / 1000000)
+			elif isinstance(next_interval, datetime.datetime):
+				next = next_interval - datetime.datetime.now()
+				await asyncio.sleep(next.seconds + next.microseconds / 1000000)
+		#end for
+	else:
+		next_interval = cb(*args, **kwargs)
+		while next_interval:
+			if isinstance(next_interval, (int, float)):
+				await asyncio.sleep(next_interval)
+			elif isinstance(next_interval, datetime.timedelta):
+				await asyncio.sleep(next_interval.seconds + next_interval.microseconds / 1000000)
+			elif isinstance(next_interval, datetime.datetime):
+				next = next_interval - datetime.datetime.now()
+				await asyncio.sleep(next.seconds + next.microseconds / 1000000)
+			next_interval = cb(*args, **kwargs)
+		#end while
+	#end if
+#end timer
+
+asyncio.ensure_future(timer(1, callback))

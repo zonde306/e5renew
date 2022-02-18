@@ -1,6 +1,4 @@
-msal>=0.1,<2
 fastapi>=0.1,<2
 uvicorn>=0.1,<2
 aiohttp>=3.0,<4
 pony>=0.1,<1
-aio-timers>=0.0.1,<1
