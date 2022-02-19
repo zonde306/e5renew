@@ -2,7 +2,7 @@
 
 DATABASE = {
 	"provider" : "sqlite",
-	"filename" : "database.sq3",
+	"filename" : "db/database.sq3",
 	"create_db" : True,
 }
 

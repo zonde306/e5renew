@@ -1,0 +1,5 @@
+*.sq3
+*.pyc
+__pycache__
+README
+*.md
