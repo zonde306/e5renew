@@ -31,8 +31,8 @@ class Application(db.Entity):
 	valid = pony.Required(bool, default=False)
 	pony.composite_key(account_id, client_id)
 	redirect_uri = pony.Optional(str)
-	min_interval = pony.Required(datetime.timedelta, default=lambda: datetime.timedelta(seconds=7200))
-	max_interval = pony.Required(datetime.timedelta, default=lambda: datetime.timedelta(seconds=3600))
+	min_interval = pony.Required(datetime.timedelta, default=lambda: datetime.timedelta(seconds=3600))
+	max_interval = pony.Required(datetime.timedelta, default=lambda: datetime.timedelta(seconds=7200))
 	next = pony.Required(datetime.datetime, default=lambda: datetime.datetime.now() + datetime.timedelta(seconds=random.randint(3600, 7200)), index=True)
 	
 	def after_delete(self):
