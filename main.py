@@ -64,6 +64,7 @@ def new_user(body : MemberData):
 class NewAppData(pydantic.BaseModel):
 	client_id : str
 	secret : str
+	verify : bool = True
 #end NewAppData
 
 @app.post("/api/new-app/{openid}")
@@ -81,12 +82,13 @@ async def new_app(openid : str, body : NewAppData):
 	#end with
 	
 	# 验证 client_id 和 secret
-	try:
-		result = await funcs.get_access_token_without_code(body.client_id, body.secret)
-	except:
-		return { "status" : "error", "reason" : "network error" }
-	if "error_description" in result:
-		return { "status" : "error", "reason" : result["error_description"] }
+	if body.verify:
+		try:
+			result = await funcs.get_access_token_without_code(body.client_id, body.secret)
+		except:
+			return { "status" : "error", "reason" : "network error" }
+		if "error_description" in result:
+			return { "status" : "error", "reason" : result["error_description"] }
 	
 	# 查重
 	with pony.db_session:
@@ -107,6 +109,7 @@ class SetAppData(pydantic.BaseModel):
 	secret : typing.Optional[str]
 	min_interval : typing.Optional[int]
 	max_interval : typing.Optional[int]
+	verify : bool = True
 #end SetAppData
 
 @app.post("/api/set-app/{openid}/{app_id}")
@@ -132,7 +135,7 @@ async def set_app(openid : str, app_id : int, body : SetAppData):
 	#end with
 	
 	# 验证 client_id 和 secret
-	if body.secret:
+	if body.secret and body.verify:
 		try:
 			result = await funcs.get_access_token_without_code(dbapp.client_id, body.secret)
 		except:
